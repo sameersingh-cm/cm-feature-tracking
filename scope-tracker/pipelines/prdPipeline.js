@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const confluenceClient = require('../utils/confluenceClient');
 const { extractFeatures } = require('../ai/prdExtractor');
 const { diff } = require('../utils/diffEngine');
+const { toIST } = require('../utils/ist');
 
 const RUN_STATE_PATH = path.join(__dirname, '../state/runState.json');
 
@@ -46,7 +47,7 @@ function saveSnapshot(featureId, snapshot) {
   if (!state.features) state.features = {};
   if (!state.features[featureId]) state.features[featureId] = {};
   state.features[featureId].prdSnapshot = snapshot;
-  state.features[featureId].prdSnapshotTimestamp = new Date().toISOString();
+  state.features[featureId].prdSnapshotTimestamp = toIST();
   saveRunState(state);
 }
 
@@ -63,7 +64,7 @@ function hashFeature(feature) {
 }
 
 function buildChangelogEntry(featureId, featureName, type, feature, previous = null) {
-  const now = new Date().toISOString();
+  const now = toIST();
   const evidenceParts = [];
   if (previous) evidenceParts.push(`Previous: ${JSON.stringify(previous)}`);
   evidenceParts.push(`Current: ${JSON.stringify(feature)}`);

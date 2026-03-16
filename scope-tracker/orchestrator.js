@@ -3,6 +3,7 @@
 const { google } = require('googleapis');
 
 const configReader = require('./config/configReader');
+const { toIST } = require('./utils/ist');
 const prdPipeline = require('./pipelines/prdPipeline');
 const uatPipeline = require('./pipelines/uatPipeline');
 const slackPipeline = require('./pipelines/slackPipeline');
@@ -118,7 +119,7 @@ async function updateConfigRunState(activeFeatures) {
     });
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.CONFIG_SHEET_ID;
-    const now = new Date().toISOString();
+    const now = toIST();
 
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -269,8 +270,8 @@ async function runPipeline(triggerType = 'scheduled') {
   const runLogEntry = {
     'Run ID': runId,
     'Triggered By': triggerType,
-    'Run Start': runStart.toISOString(),
-    'Run End': runEnd.toISOString(),
+    'Run Start': toIST(runStart),
+    'Run End': toIST(runEnd),
     'PRD Status': prdStatus,
     'UAT Status': uatStatus,
     'Slack Status': slackStatus,

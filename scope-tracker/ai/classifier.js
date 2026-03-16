@@ -18,6 +18,7 @@ Return ONLY a valid JSON object — no markdown, no explanation, no surrounding 
 The object must have exactly these fields:
   "is_scope_decision"  — boolean: true if this thread contains a scope decision
   "decision_type"      — one of: "parking", "scope_change", "fast_follower", "blocker", "discussion", "none"
+  "task_name"          — string: the specific user story, feature, or task being discussed (e.g. "Login UI", "OTP Verification"). Use the shortest recognisable name that matches how a PRD or test sheet would refer to it. null if unclear.
   "target_version"     — string: "V1", "V2", "V3", or null if not mentioned
   "reason"             — string: the reason given for the decision, or null
   "actor"              — string: name or @handle of the person who made the decision, or null

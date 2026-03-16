@@ -6,6 +6,7 @@ const path = require('path');
 const { fetchChannelHistory, fetchThread } = require('../slack/slackClient');
 const { threadMatchesKeywords } = require('../slack/keywordFilter');
 const { classifyThread } = require('../ai/classifier');
+const { toIST } = require('../utils/ist');
 
 const RUN_STATE_PATH = path.join(__dirname, '../state/runState.json');
 
@@ -43,8 +44,9 @@ function saveLastSlackRun(featureId, isoTimestamp) {
 // ---------------------------------------------------------------------------
 
 function buildChangelogEntry(featureId, channelId, parentMsg, classification) {
+  const taskName = classification.task_name || classification.reason || '';
   return {
-    timestamp: new Date().toISOString(),
+    timestamp: toIST(),
     featureId,
     source: 'slack',
     decisionType: classification.decision_type || 'discussion',
@@ -53,7 +55,7 @@ function buildChangelogEntry(featureId, channelId, parentMsg, classification) {
     targetVersion: classification.target_version || '',
     confidenceScore: classification.confidence ?? 0,
     evidence: classification.evidence_excerpt || '',
-    sourceMessageId: `slack::${featureId}::${channelId}::${parentMsg.ts}`,
+    sourceMessageId: `slack::${featureId}::${taskName}::${parentMsg.ts}`,
   };
 }
 
@@ -115,7 +117,7 @@ async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
       changelog.push(buildChangelogEntry(featureId, channelId, msg, classification));
       scopeRegistry.push({
         featureId,
-        taskName: classification.reason || classification.decision_type || '',
+        taskName: classification.task_name || classification.reason || classification.decision_type || '',
         status: classification.decision_type || '',
         source: 'slack',
         targetVersion: classification.target_version || '',
@@ -150,7 +152,7 @@ async function runFeature(feature) {
     ? String(Math.floor(new Date(lastSlackRunIso).getTime() / 1000))
     : null;
 
-  const runTimestamp = new Date().toISOString();
+  const runTimestamp = toIST();
 
   // Per-channel error isolation via Promise.allSettled
   const channelResults = await Promise.allSettled(

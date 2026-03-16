@@ -1,6 +1,9 @@
 'use strict';
 
 const { google } = require('googleapis');
+const { toIST, normaliseTaskName } = require('../utils/ist');
+const { reconcileTaskNames } = require('../ai/taskReconciler');
+const logger = require('../utils/logger');
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
@@ -318,28 +321,63 @@ async function rollupChangelogToScopeRegistry(spreadsheetId) {
   const tvIdx = col('Target Version');
   const msgIdIdx = col('Source Message ID');
 
-  // Deduplicate: latest entry per (Feature ID + Task Name)
-  const registryMap = {};
+  // --- Pass 1: collect raw task names per feature ---
+  const rowsByFeature = {}; // featureId → [{ rawTaskName, row }]
   for (const row of rows) {
     const featureId = (fidIdx >= 0 && row[fidIdx]) || '';
     const reason = (reasonIdx >= 0 && row[reasonIdx]) || '';
     const sourceMessageId = (msgIdIdx >= 0 && row[msgIdIdx]) || '';
-    const taskName = extractTaskName(sourceMessageId, reason);
-    if (!featureId || !taskName) continue;
+    const rawTaskName = extractTaskName(sourceMessageId, reason);
+    if (!featureId || !rawTaskName) continue;
 
-    const key = `${featureId}::${taskName}`;
-    const ts = (tsIdx >= 0 && row[tsIdx]) || '';
+    if (!rowsByFeature[featureId]) rowsByFeature[featureId] = [];
+    rowsByFeature[featureId].push({ rawTaskName, row });
+  }
 
-    if (!registryMap[key] || ts > registryMap[key].ts) {
-      registryMap[key] = {
-        ts,
-        'Feature ID': featureId,
-        'Task Name': taskName,
-        'Status': (dtIdx >= 0 && row[dtIdx]) || '',
-        'Source': (srcIdx >= 0 && row[srcIdx]) || '',
-        'Target Version': (tvIdx >= 0 && row[tvIdx]) || '',
-        'Last Updated': ts || new Date().toISOString(),
-      };
+  // --- Pass 2: reconcile task names per feature via Claude ---
+  // One lightweight API call per feature to group names like
+  // "Login UI" and "User Authentication Screen" into the same bucket.
+  const canonicalMaps = {}; // featureId → { rawName → canonicalName }
+  const reconcilePromises = Object.entries(rowsByFeature).map(
+    async ([featureId, entries]) => {
+      const uniqueNames = [...new Set(entries.map((e) => e.rawTaskName))];
+      try {
+        canonicalMaps[featureId] = await reconcileTaskNames(uniqueNames);
+        logger.info('rollup', `Reconciled ${uniqueNames.length} task names for ${featureId}`);
+      } catch (err) {
+        logger.warn('rollup', `Task reconciliation failed for ${featureId}, using raw names`, {
+          error: err.message,
+        });
+        // Fallback: identity mapping
+        const map = {};
+        for (const n of uniqueNames) map[n] = n;
+        canonicalMaps[featureId] = map;
+      }
+    }
+  );
+  await Promise.all(reconcilePromises);
+
+  // --- Pass 3: group by (featureId + canonical task name), keep latest ---
+  const registryMap = {};
+  for (const [featureId, entries] of Object.entries(rowsByFeature)) {
+    const nameMap = canonicalMaps[featureId] || {};
+
+    for (const { rawTaskName, row } of entries) {
+      const canonical = nameMap[rawTaskName] || rawTaskName;
+      const key = `${featureId}::${normaliseTaskName(canonical)}`;
+      const ts = (tsIdx >= 0 && row[tsIdx]) || '';
+
+      if (!registryMap[key] || ts > registryMap[key].ts) {
+        registryMap[key] = {
+          ts,
+          'Feature ID': featureId,
+          'Task Name': canonical,
+          'Status': (dtIdx >= 0 && row[dtIdx]) || '',
+          'Source': (srcIdx >= 0 && row[srcIdx]) || '',
+          'Target Version': (tvIdx >= 0 && row[tvIdx]) || '',
+          'Last Updated': ts || toIST(),
+        };
+      }
     }
   }
 
@@ -366,11 +404,11 @@ async function writeAll(aggregatedList) {
       'Current Status': f.currentStatus || '',
       'PRD Status': f.prdStatus || '',
       'UAT Status': f.uatStatus || '',
-      'Last Updated': new Date().toISOString(),
+      'Last Updated': toIST(),
     }));
 
     const changelogEntries = (changelog || []).map((c) => ({
-      'Timestamp': c.timestamp || new Date().toISOString(),
+      'Timestamp': c.timestamp || toIST(),
       'Feature ID': c.featureId || '',
       'Source': c.source || '',
       'Decision Type': c.decisionType || '',

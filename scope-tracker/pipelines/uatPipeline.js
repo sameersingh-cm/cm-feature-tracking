@@ -2,6 +2,7 @@
 
 const { fetchUatSheet } = require('../uat/uatSheetReader');
 const { applyRules, DISPOSITION } = require('../uat/rulesEngine');
+const { toIST } = require('../utils/ist');
 
 // ---------------------------------------------------------------------------
 // Changelog entry builder
@@ -33,7 +34,7 @@ function buildChangelogEntry(featureId, issue, ruleResult, headers, row) {
   const sourceMessageId = `uat::${featureId}::${issue}::${uatStatusVal}`;
 
   return {
-    timestamp: new Date().toISOString(),
+    timestamp: toIST(),
     featureId,
     source: 'uat',
     decisionType: decisionTypeMap[disposition],
