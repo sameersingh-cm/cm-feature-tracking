@@ -278,8 +278,28 @@ async function appendRunLog(spreadsheetId, runLogEntry) {
 }
 
 /**
+ * Extract the task name from a Source Message ID.
+ *
+ * Formats:
+ *   uat::featureId::issueText::uatStatus  → issueText
+ *   prd::featureId::featureName::hash     → featureName
+ *   slack::featureId::channelId::ts       → (falls back to Reason)
+ *
+ * Returns the segment between the 2nd and 3rd "::" delimiters.
+ */
+function extractTaskName(sourceMessageId, fallback) {
+  if (!sourceMessageId) return fallback;
+  const parts = sourceMessageId.split('::');
+  // parts[0]=source, parts[1]=featureId, parts[2]=taskName/issue, parts[3]=extra
+  const extracted = parts.length >= 3 ? parts[2] : '';
+  return extracted || fallback;
+}
+
+/**
  * Read the full Changelog tab and rollup into Scope Registry entries.
- * Keeps the latest entry per (Feature ID + Reason) as the source of truth.
+ * Keeps the latest entry per (Feature ID + Task Name) as the source of truth.
+ * Task Name is derived from Source Message ID (the actual issue/feature text),
+ * not from Reason (which is just the disposition like "Pushed to next release").
  */
 async function rollupChangelogToScopeRegistry(spreadsheetId) {
   const sheets = await getSheetsClient();
@@ -296,22 +316,25 @@ async function rollupChangelogToScopeRegistry(spreadsheetId) {
   const dtIdx = col('Decision Type');
   const reasonIdx = col('Reason');
   const tvIdx = col('Target Version');
+  const msgIdIdx = col('Source Message ID');
 
-  // Deduplicate: latest entry per (Feature ID + Reason)
+  // Deduplicate: latest entry per (Feature ID + Task Name)
   const registryMap = {};
   for (const row of rows) {
     const featureId = (fidIdx >= 0 && row[fidIdx]) || '';
     const reason = (reasonIdx >= 0 && row[reasonIdx]) || '';
-    if (!featureId || !reason) continue;
+    const sourceMessageId = (msgIdIdx >= 0 && row[msgIdIdx]) || '';
+    const taskName = extractTaskName(sourceMessageId, reason);
+    if (!featureId || !taskName) continue;
 
-    const key = `${featureId}::${reason}`;
+    const key = `${featureId}::${taskName}`;
     const ts = (tsIdx >= 0 && row[tsIdx]) || '';
 
     if (!registryMap[key] || ts > registryMap[key].ts) {
       registryMap[key] = {
         ts,
         'Feature ID': featureId,
-        'Task Name': reason,
+        'Task Name': taskName,
         'Status': (dtIdx >= 0 && row[dtIdx]) || '',
         'Source': (srcIdx >= 0 && row[srcIdx]) || '',
         'Target Version': (tvIdx >= 0 && row[tvIdx]) || '',
