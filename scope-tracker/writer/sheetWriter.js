@@ -278,20 +278,63 @@ async function appendRunLog(spreadsheetId, runLogEntry) {
 }
 
 /**
+ * Read the full Changelog tab and rollup into Scope Registry entries.
+ * Keeps the latest entry per (Feature ID + Reason) as the source of truth.
+ */
+async function rollupChangelogToScopeRegistry(spreadsheetId) {
+  const sheets = await getSheetsClient();
+  await ensureTab(sheets, spreadsheetId, TAB_CHANGELOG, CHANGELOG_HEADERS);
+  const { headers, rows } = await fetchTab(sheets, spreadsheetId, TAB_CHANGELOG);
+  if (rows.length === 0) return;
+
+  const hdrs = headers.length > 0 ? headers : CHANGELOG_HEADERS;
+  const col = (name) => hdrs.findIndex((h) => h.trim() === name.trim());
+
+  const tsIdx = col('Timestamp');
+  const fidIdx = col('Feature ID');
+  const srcIdx = col('Source');
+  const dtIdx = col('Decision Type');
+  const reasonIdx = col('Reason');
+  const tvIdx = col('Target Version');
+
+  // Deduplicate: latest entry per (Feature ID + Reason)
+  const registryMap = {};
+  for (const row of rows) {
+    const featureId = (fidIdx >= 0 && row[fidIdx]) || '';
+    const reason = (reasonIdx >= 0 && row[reasonIdx]) || '';
+    if (!featureId || !reason) continue;
+
+    const key = `${featureId}::${reason}`;
+    const ts = (tsIdx >= 0 && row[tsIdx]) || '';
+
+    if (!registryMap[key] || ts > registryMap[key].ts) {
+      registryMap[key] = {
+        ts,
+        'Feature ID': featureId,
+        'Task Name': reason,
+        'Status': (dtIdx >= 0 && row[dtIdx]) || '',
+        'Source': (srcIdx >= 0 && row[srcIdx]) || '',
+        'Target Version': (tvIdx >= 0 && row[tvIdx]) || '',
+        'Last Updated': ts || new Date().toISOString(),
+      };
+    }
+  }
+
+  const scopeRows = Object.values(registryMap).map(({ ts, ...rest }) => rest);
+  if (scopeRows.length > 0) {
+    await upsertScopeRegistry(spreadsheetId, scopeRows);
+  }
+}
+
+/**
  * Task 3.6: writeAll — accepts aggregated result and calls all writers.
- * aggregated: {
- *   features: [ { featureId, featureName, targetVersion, currentStatus, prdStatus, uatStatus } ],
- *   scopeRegistry: [ { featureId, taskName, status, source, targetVersion } ],
- *   changelog: [ changelog entry objects ],
- *   outputSheetId: string   (per-feature writers pass their own spreadsheetId)
- * }
  *
  * The orchestrator passes aggregated results grouped per output sheet.
  * aggregated is an array of { spreadsheetId, features, scopeRegistry, changelog }
  */
 async function writeAll(aggregatedList) {
   for (const agg of aggregatedList) {
-    const { spreadsheetId, features, scopeRegistry, changelog } = agg;
+    const { spreadsheetId, features, changelog } = agg;
 
     const featureRows = (features || []).map((f) => ({
       'Feature ID': f.featureId || '',
@@ -300,15 +343,6 @@ async function writeAll(aggregatedList) {
       'Current Status': f.currentStatus || '',
       'PRD Status': f.prdStatus || '',
       'UAT Status': f.uatStatus || '',
-      'Last Updated': new Date().toISOString(),
-    }));
-
-    const scopeRows = (scopeRegistry || []).map((s) => ({
-      'Feature ID': s.featureId || '',
-      'Task Name': s.taskName || '',
-      'Status': s.status || '',
-      'Source': s.source || '',
-      'Target Version': s.targetVersion || '',
       'Last Updated': new Date().toISOString(),
     }));
 
@@ -325,11 +359,14 @@ async function writeAll(aggregatedList) {
       'Source Message ID': c.sourceMessageId || '',
     }));
 
+    // Write features and changelog first
     await Promise.all([
       featureRows.length > 0 ? upsertFeatures(spreadsheetId, featureRows) : Promise.resolve(),
-      scopeRows.length > 0 ? upsertScopeRegistry(spreadsheetId, scopeRows) : Promise.resolve(),
       changelogEntries.length > 0 ? appendChangelog(spreadsheetId, changelogEntries) : Promise.resolve(),
     ]);
+
+    // Then rollup the full changelog into Scope Registry
+    await rollupChangelogToScopeRegistry(spreadsheetId);
   }
 }
 

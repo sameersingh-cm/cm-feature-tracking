@@ -55,40 +55,6 @@ function aggregateResults(prd, uat, slack, activeFeatures) {
   const allChangelog = [...prd.changelog, ...uat.changelog, ...slack.changelog];
   const allErrors = [...prd.errors, ...uat.errors, ...slack.errors];
 
-  // Build scope registry from two sources:
-  // 1. Direct pipeline output (PRD extracted features, Slack classifications)
-  const directScopeRegistry = [
-    ...(prd.scopeRegistry || []),
-    ...(uat.scopeRegistry || []),
-    ...(slack.scopeRegistry || []),
-  ];
-
-  // 2. Rollup from changelog: derive a scope registry entry per changelog entry,
-  //    then deduplicate by keeping the latest per (featureId + reason/taskName)
-  const registryMap = {};
-  for (const entry of allChangelog) {
-    const key = `${entry.featureId}::${entry.reason || ''}`;
-    const existing = registryMap[key];
-    if (!existing || entry.timestamp > existing.timestamp) {
-      registryMap[key] = {
-        featureId: entry.featureId,
-        taskName: entry.reason || '',
-        status: entry.decisionType || '',
-        source: entry.source || '',
-        targetVersion: entry.targetVersion || '',
-        timestamp: entry.timestamp,
-      };
-    }
-  }
-
-  // Direct pipeline entries take precedence (overwrite changelog-derived ones)
-  for (const entry of directScopeRegistry) {
-    const key = `${entry.featureId}::${entry.taskName || ''}`;
-    registryMap[key] = entry;
-  }
-
-  const allScopeRegistry = Object.values(registryMap).map(({ timestamp, ...rest }) => rest);
-
   // Build per-sheet buckets
   const sheetMap = {};
 
@@ -121,14 +87,6 @@ function aggregateResults(prd, uat, slack, activeFeatures) {
     const spreadsheetId = feature?.outputSheetId;
     if (!spreadsheetId) continue;
     getOrCreate(spreadsheetId).changelog.push(entry);
-  }
-
-  // Distribute scope registry entries to the correct output sheet
-  for (const entry of allScopeRegistry) {
-    const feature = featureMap[entry.featureId];
-    const spreadsheetId = feature?.outputSheetId;
-    if (!spreadsheetId) continue;
-    getOrCreate(spreadsheetId).scopeRegistry.push(entry);
   }
 
   const prdStatus = prd.errors.length === 0 ? 'success' : 'partial';
