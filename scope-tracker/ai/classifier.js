@@ -47,23 +47,32 @@ async function classifyThread(threadMessages, featureName = '') {
     ? `Feature: ${featureName}\n\nSlack Thread:\n${threadText}`
     : `Slack Thread:\n${threadText}`;
 
-  const response = await axios.post(
-    ANTHROPIC_API_URL,
-    {
-      model: MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContent }],
-    },
-    {
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+  let response;
+  try {
+    response = await axios.post(
+      ANTHROPIC_API_URL,
+      {
+        model: MODEL,
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: userContent }],
       },
-      timeout: 30000,
-    }
-  );
+      {
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+  } catch (axiosErr) {
+    const status = axiosErr.response?.status;
+    const body = axiosErr.response?.data;
+    throw new Error(
+      `classifier: Anthropic API HTTP ${status}: ${JSON.stringify(body)}`
+    );
+  }
 
   const text = response.data?.content?.[0]?.text || '';
   let parsed;

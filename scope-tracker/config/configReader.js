@@ -54,8 +54,8 @@ function parseSlackChannels(rows) {
       .map((k) => k.trim())
       .filter(Boolean);
     map[featureId].push({
-      channelName: row[idx('Channel Name')] || '',
-      channelId: row[idx('Channel ID')] || '',
+      channelName: (row[idx('Channel Name')] || '').trim(),
+      channelId: (row[idx('Channel ID')] || '').trim(),
       keywords,
     });
   }

@@ -66,12 +66,15 @@ async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
   const changelog = [];
   const errors = [];
 
+  const logger = require('../utils/logger');
+
   // Fetch channel history since last run
   let messages;
   try {
     messages = await fetchChannelHistory(channelId, lastSlackRunUnix);
   } catch (err) {
-    errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, error: err.message });
+    logger.error('slack', `fetchChannelHistory failed for ${channelId}`, { error: err.message });
+    errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, step: 'fetchHistory', error: err.message });
     return { changelog, errors };
   }
 
@@ -85,7 +88,8 @@ async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
       try {
         threadMessages = await fetchThread(channelId, msg.ts);
       } catch (err) {
-        errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, error: err.message });
+        logger.error('slack', `fetchThread failed for ${channelId} ts=${msg.ts}`, { error: err.message });
+        errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, step: 'fetchThread', error: err.message });
         continue;
       }
     } else {
@@ -100,7 +104,8 @@ async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
     try {
       classification = await classifyThread(threadMessages, featureName);
     } catch (err) {
-      errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, error: err.message });
+      logger.error('slack', `classifyThread failed for ${channelId} ts=${msg.ts}`, { error: err.message });
+      errors.push({ pipeline: 'slack', feature: featureId, channel: channelId, step: 'classify', error: err.message });
       continue;
     }
 
