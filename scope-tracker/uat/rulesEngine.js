@@ -7,6 +7,9 @@ const DISPOSITION = {
   PUSHED: 'PUSHED',
   ACTIVE_BLOCKER: 'ACTIVE_BLOCKER',
   PARKED: 'PARKED',
+  PASSED: 'PASSED',
+  PASSED_WITH_ITERATION: 'PASSED_WITH_ITERATION',
+  TO_BE_TESTED: 'TO_BE_TESTED',
   NO_ACTION: 'NO_ACTION',
 };
 
@@ -56,25 +59,25 @@ function applyRules(uatStatus, blocker, currentTarget) {
 
   if (status === 'passed') {
     return {
-      disposition: DISPOSITION.NO_ACTION,
+      disposition: DISPOSITION.PASSED,
       targetVersion: currentTarget || '',
-      note: '',
+      note: 'Passed UAT',
     };
   }
 
   if (status === 'passed with iteration') {
     return {
-      disposition: DISPOSITION.NO_ACTION,
+      disposition: DISPOSITION.PASSED_WITH_ITERATION,
       targetVersion: currentTarget || '',
-      note: 'Iteration needed',
+      note: 'Passed with iteration',
     };
   }
 
   if (status === 'to be tested') {
     return {
-      disposition: DISPOSITION.NO_ACTION,
+      disposition: DISPOSITION.TO_BE_TESTED,
       targetVersion: currentTarget || '',
-      note: '',
+      note: 'To be tested',
     };
   }
 

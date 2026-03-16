@@ -16,6 +16,9 @@ function buildChangelogEntry(featureId, issue, ruleResult, headers, row) {
     [DISPOSITION.PUSHED]: 'scope_change',
     [DISPOSITION.ACTIVE_BLOCKER]: 'blocker',
     [DISPOSITION.PARKED]: 'parking',
+    [DISPOSITION.PASSED]: 'passed',
+    [DISPOSITION.PASSED_WITH_ITERATION]: 'passed_with_iteration',
+    [DISPOSITION.TO_BE_TESTED]: 'to_be_tested',
   };
 
   const uatStatusVal = getCellByName(headers, row, 'uat_status') || '';
