@@ -73,11 +73,19 @@ async function fetchThread(channelId, threadTs) {
     const params = { channel: channelId, ts: threadTs, limit: 200 };
     if (cursor) params.cursor = cursor;
 
-    const response = await axios.get(`${BASE_URL}/conversations.replies`, {
-      headers: getHeaders(),
-      params,
-      timeout: 15000,
-    });
+    let response;
+    try {
+      response = await axios.get(`${BASE_URL}/conversations.replies`, {
+        headers: getHeaders(),
+        params,
+        timeout: 15000,
+      });
+    } catch (axiosErr) {
+      const body = axiosErr.response?.data;
+      throw new Error(
+        `conversations.replies HTTP ${axiosErr.response?.status}: ${JSON.stringify(body)} (ts=${threadTs})`
+      );
+    }
 
     if (!response.data.ok) {
       throw new Error(`Slack API error (conversations.replies): ${response.data.error}`);
