@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scope Tracker — PRD</title>
+<style>
+  :root {
+    --purple-50: #EEEDFE; --purple-100: #CECBF6; --purple-600: #534AB7; --purple-800: #3C3489; --purple-900: #26215C;
+    --teal-50: #E1F5EE; --teal-100: #9FE1CB; --teal-600: #0F6E56; --teal-800: #085041;
+    --coral-50: #FAECE7; --coral-100: #F5C4B3; --coral-600: #993C1D; --coral-800: #712B13;
+    --blue-50: #E6F1FB; --blue-100: #B5D4F4; --blue-600: #185FA5; --blue-800: #0C447C;
+    --amber-50: #FAEEDA; --amber-100: #FAC775; --amber-600: #854F0B; --amber-800: #633806;
+    --gray-50: #F1EFE8; --gray-100: #D3D1C7; --gray-400: #888780; --gray-600: #5F5E5A; --gray-800: #444441;
+    --green-50: #EAF3DE; --green-600: #3B6D11; --green-800: #27500A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.7; background: #f8f7f5; color: #1a1a18; }
+  .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  /* NAV */
+  .toc { background: white; border: 0.5px solid #d3d1c7; border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
+  .toc-title { font-size: 12px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px; }
+  .toc-item { font-size: 13px; color: var(--blue-600); cursor: pointer; padding: 3px 6px; border-radius: 6px; transition: background 0.15s; }
+  .toc-item:hover { background: var(--blue-50); }
+
+  /* HEADER */
+  .doc-header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 0.5px solid #d3d1c7; }
+  .doc-title { font-size: 28px; font-weight: 500; color: #1a1a18; margin-bottom: 0.5rem; }
+  .doc-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 1rem; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 20px; }
+  .badge-purple { background: var(--purple-50); color: var(--purple-800); }
+  .badge-teal { background: var(--teal-50); color: var(--teal-600); }
+  .badge-blue { background: var(--blue-50); color: var(--blue-800); }
+  .badge-amber { background: var(--amber-50); color: var(--amber-600); }
+
+  /* SECTIONS */
+  .section { margin-bottom: 2.5rem; scroll-margin-top: 1rem; }
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 0.5px solid #d3d1c7; }
+  .section-num { width: 28px; height: 28px; border-radius: 8px; background: var(--purple-50); color: var(--purple-800); font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .section-title { font-size: 19px; font-weight: 500; color: #1a1a18; }
+  .subsection { margin-bottom: 1.5rem; }
+  .subsection-title { font-size: 15px; font-weight: 500; color: #1a1a18; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
+  .subsection-title::before { content: ''; display: inline-block; width: 3px; height: 16px; background: var(--purple-600); border-radius: 2px; }
+  p { margin-bottom: 0.75rem; color: #2c2c2a; }
+  p:last-child { margin-bottom: 0; }
+
+  /* INFO BOXES */
+  .info-box { border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem; font-size: 14px; }
+  .info-box-purple { background: var(--purple-50); border-left: 3px solid var(--purple-600); }
+  .info-box-teal { background: var(--teal-50); border-left: 3px solid var(--teal-600); }
+  .info-box-blue { background: var(--blue-50); border-left: 3px solid var(--blue-600); }
+  .info-box-amber { background: var(--amber-50); border-left: 3px solid var(--amber-600); }
+  .info-box-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .info-box-purple .info-box-label { color: var(--purple-600); }
+  .info-box-teal .info-box-label { color: var(--teal-600); }
+  .info-box-blue .info-box-label { color: var(--blue-600); }
+  .info-box-amber .info-box-label { color: var(--amber-600); }
+
+  /* CARDS */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 1rem; }
+  .card { background: white; border: 0.5px solid #d3d1c7; border-radius: 12px; padding: 1rem 1.25rem; }
+  .card-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400); margin-bottom: 6px; }
+  .card-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .card-body { font-size: 13px; color: var(--gray-600); line-height: 1.5; }
+
+  /* TABLES */
+  .table-wrap { overflow-x: auto; margin-bottom: 1rem; border-radius: 10px; border: 0.5px solid #d3d1c7; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--gray-50); padding: 9px 12px; text-align: left; font-weight: 500; font-size: 12px; color: var(--gray-600); border-bottom: 0.5px solid #d3d1c7; }
+  td { padding: 9px 12px; border-bottom: 0.5px solid #f1efe8; vertical-align: top; color: #2c2c2a; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafaf8; }
+  .td-code { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 12px; background: var(--gray-50); padding: 2px 6px; border-radius: 4px; display: inline-block; color: var(--purple-800); }
+
+  /* CODE */
+  pre { background: #1e1e1e; color: #d4d4d4; padding: 1rem 1.25rem; border-radius: 10px; font-size: 12.5px; line-height: 1.6; overflow-x: auto; margin-bottom: 1rem; font-family: 'SF Mono', 'Fira Mono', monospace; }
+  code { font-family: 'SF Mono', 'Fira Mono', monospace; font-size: 12px; background: var(--gray-50); padding: 1px 5px; border-radius: 4px; color: var(--purple-800); }
+
+  /* ARCH DIAGRAM */
+  .arch { background: white; border: 0.5px solid #d3d1c7; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+  .arch-row { display: flex; align-items: stretch; gap: 0; margin-bottom: 0; }
+  .arch-layer { border-radius: 10px; padding: 0.75rem 1rem; text-align: center; font-size: 13px; }
+  .arch-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-400); text-align: center; margin-bottom: 8px; }
+  .arch-arrow { display: flex; align-items: center; justify-content: center; color: var(--gray-400); font-size: 18px; padding: 0 6px; }
+  .pipeline-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 1rem 0; }
+  .pipeline-box { border-radius: 10px; padding: 0.85rem 1rem; font-size: 13px; }
+  .pb-purple { background: var(--purple-50); border: 0.5px solid var(--purple-100); }
+  .pb-teal { background: var(--teal-50); border: 0.5px solid var(--teal-100); }
+  .pb-blue { background: var(--blue-50); border: 0.5px solid var(--blue-100); }
+  .pb-amber { background: var(--amber-50); border: 0.5px solid var(--amber-100); }
+  .pb-coral { background: var(--coral-50); border: 0.5px solid var(--coral-100); }
+  .pb-title { font-weight: 500; font-size: 13px; margin-bottom: 4px; }
+  .pb-purple .pb-title { color: var(--purple-800); }
+  .pb-teal .pb-title { color: var(--teal-600); }
+  .pb-blue .pb-title { color: var(--blue-800); }
+  .pb-amber .pb-title { color: var(--amber-600); }
+  .pb-coral .pb-title { color: var(--coral-600); }
+  .pb-sub { font-size: 12px; color: var(--gray-600); line-height: 1.4; }
+  .output-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  /* STATUS TAGS */
+  .tag { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+  .tag-green { background: var(--green-50); color: var(--green-600); }
+  .tag-amber { background: var(--amber-50); color: var(--amber-600); }
+  .tag-coral { background: var(--coral-50); color: var(--coral-600); }
+  .tag-blue { background: var(--blue-50); color: var(--blue-800); }
+  .tag-purple { background: var(--purple-50); color: var(--purple-800); }
+
+  /* TASK GROUPS */
+  .task-group { background: white; border: 0.5px solid #d3d1c7; border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .tg-header { display: flex; align-items: center; gap: 12px; padding: 0.9rem 1.25rem; border-bottom: 0.5px solid #f1efe8; cursor: pointer; user-select: none; }
+  .tg-num { width: 26px; height: 26px; border-radius: 7px; background: var(--purple-50); color: var(--purple-800); font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .tg-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .tg-section { font-size: 12px; color: var(--gray-400); font-family: 'SF Mono', monospace; }
+  .tg-toggle { font-size: 12px; color: var(--gray-400); }
+  .tg-tasks { padding: 0.75rem 1.25rem; display: none; }
+  .tg-tasks.open { display: block; }
+  .task-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 0.5px solid #f1efe8; font-size: 13px; }
+  .task-item:last-child { border-bottom: none; }
+  .task-id { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--gray-400); min-width: 30px; padding-top: 2px; }
+  .task-name { flex: 1; color: #2c2c2a; line-height: 1.4; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #d3d1c7; flex-shrink: 0; margin-top: 5px; }
+
+  /* SEQ DIAGRAM */
+  .seq-diagram { background: #1e1e1e; border-radius: 10px; padding: 1rem 1.25rem; font-family: 'SF Mono', monospace; font-size: 11.5px; line-height: 1.7; color: #d4d4d4; overflow-x: auto; margin-bottom: 1rem; }
+
+  /* CHECKLIST */
+  .checklist { list-style: none; margin-bottom: 1rem; }
+  .checklist li { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 0.5px solid #f1efe8; font-size: 14px; }
+  .checklist li:last-child { border-bottom: none; }
+  .check-box { width: 16px; height: 16px; border: 1.5px solid #d3d1c7; border-radius: 4px; flex-shrink: 0; margin-top: 2px; }
+
+  /* JSON BLOCK */
+  .json-block { background: #1e1e1e; border-radius: 10px; padding: 1.25rem; font-family: 'SF Mono', monospace; font-size: 12px; line-height: 1.65; color: #d4d4d4; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+  .json-key { color: #9cdcfe; }
+  .json-str { color: #ce9178; }
+  .json-num { color: #b5cea8; }
+  .json-bool { color: #569cd6; }
+
+  hr { border: none; border-top: 0.5px solid #d3d1c7; margin: 2rem 0; }
+  .divider { height: 1px; background: #f1efe8; margin: 1rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="doc-header">
+    <div class="doc-title">Scope Tracker System</div>
+    <p style="color:#5f5e5a; font-size:14px; margin-top:6px;">Product Requirements + Technical Specification</p>
+    <div class="doc-meta">
+      <span class="badge badge-purple">Version 1.0</span>
+      <span class="badge badge-teal">March 2026</span>
+      <span class="badge badge-blue">Pilot: Scalper</span>
+      <span class="badge badge-amber">mintcapbrokers.atlassian.net</span>
+    </div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <div class="toc-title">Table of contents</div>
+    <div class="toc-grid">
+      <div class="toc-item" onclick="scrollTo('s1')">1. System Overview</div>
+      <div class="toc-item" onclick="scrollTo('s2')">2. Functional Requirements</div>
+      <div class="toc-item" onclick="scrollTo('s3')">3. Non-Functional Requirements</div>
+      <div class="toc-item" onclick="scrollTo('s4')">4. High Level Design</div>
+      <div class="toc-item" onclick="scrollTo('s5')">5. Low Level Design</div>
+      <div class="toc-item" onclick="scrollTo('s6')">6. Data Models</div>
+      <div class="toc-item" onclick="scrollTo('s7')">7. Sequence Diagrams</div>
+      <div class="toc-item" onclick="scrollTo('s8')">8. Google Sheet Templates</div>
+      <div class="toc-item" onclick="scrollTo('s9')">9. UAT Rules Logic</div>
+      <div class="toc-item" onclick="scrollTo('s10')">10. Version Naming</div>
+      <div class="toc-item" onclick="scrollTo('s11')">11. Error Handling</div>
+      <div class="toc-item" onclick="scrollTo('s12')">12. Manual Trigger</div>
+      <div class="toc-item" onclick="scrollTo('s13')">13. Scheduling</div>
+      <div class="toc-item" onclick="scrollTo('s14')">14. Claude Code Task Groups</div>
+    </div>
+  </div>
+
+  <!-- S1 -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div class="section-title">System overview</div>
+    </div>
+    <p>A scheduled automation system that tracks product scope decisions across three sources — Confluence PRD, Slack channels, and UAT Google Sheets — and writes structured, up-to-date output to a master Google Sheet. The system is resilient, observable, and fully config-driven.</p>
+    <div class="card-grid" style="margin-top:1rem;">
+      <div class="card"><div class="card-label">Principle</div><div class="card-title">Passive capture</div><div class="card-body">No behavior change required from the team. Everything is read automatically.</div></div>
+      <div class="card"><div class="card-label">Principle</div><div class="card-title">Current state + full history</div><div class="card-body">Section 1 & 2 are upserted. Changelog is strictly append-only.</div></div>
+      <div class="card"><div class="card-label">Principle</div><div class="card-title">Resilient pipelines</div><div class="card-body">One source failing never blocks the others. All errors are logged.</div></div>
+      <div class="card"><div class="card-label">Principle</div><div class="card-title">Config-driven</div><div class="card-body">All feature settings live in a Google Sheet. Nothing hardcoded.</div></div>
+      <div class="card"><div class="card-label">Principle</div><div class="card-title">Token-efficient</div><div class="card-body">Scheduled batch runs only. No real-time event processing.</div></div>
+    </div>
+  </div>
+
+  <!-- S2 -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div class="section-title">Functional requirements</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-1: Config sheet management</div>
+      <ul style="font-size:14px; color:#2c2c2a; padding-left:1.25rem; line-height:1.9;">
+        <li>System reads Config Google Sheet at the start of every run</li>
+        <li>Features with <code>Active = N</code> are completely skipped — zero API calls</li>
+        <li>System writes run completion status back to Config Sheet Run Log tab</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-2: PRD ingestion (Confluence)</div>
+      <ul style="font-size:14px; color:#2c2c2a; padding-left:1.25rem; line-height:1.9;">
+        <li>Connects to Confluence via Atlassian API, reads PRD page per active feature</li>
+        <li>Extracts structured feature list using Claude API, snapshots with timestamp</li>
+        <li>On subsequent runs, diffs against previous snapshot and logs deltas</li>
+        <li>If Confluence fetch fails → log error to Run Log, skip PRD, continue other pipelines</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-3: UAT sheet ingestion (Google Sheets)</div>
+      <ul style="font-size:14px; color:#2c2c2a; padding-left:1.25rem; line-height:1.9;">
+        <li>Identifies latest UAT Status column dynamically (e.g. UAT 1, 2, 3 → uses UAT 3)</li>
+        <li>Applies deterministic rules — no AI needed here, rules are reliable</li>
+        <li>Outputs disposition: Pushed / Parked / Active Blocker / No Action</li>
+        <li>Writes to Output Sheet (Section 1 upsert + changelog append)</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-4: Slack ingestion</div>
+      <ul style="font-size:14px; color:#2c2c2a; padding-left:1.25rem; line-height:1.9;">
+        <li>Reads full threads (not individual messages) from configured channels</li>
+        <li>Pre-filters by keyword before sending to AI — reduces cost and noise</li>
+        <li>All detections logged regardless of confidence score; confidence column visible for audit</li>
+        <li>Per-channel failure isolation — one channel failing doesn't stop others</li>
+      </ul>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-5: AI classification (Claude API)</div>
+      <div class="info-box info-box-purple">
+        <div class="info-box-label">Model</div>
+        <code>claude-sonnet-4-20250514</code> — structured JSON output per thread
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Output field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>is_scope_decision</code></td><td>boolean</td><td>Whether this thread contains a scope decision</td></tr>
+            <tr><td><code>decision_type</code></td><td>enum</td><td>parking / scope_change / fast_follower / blocker / discussion / none</td></tr>
+            <tr><td><code>target_version</code></td><td>string</td><td>V1, V2, V3 or null</td></tr>
+            <tr><td><code>reason</code></td><td>string</td><td>Extracted reason, or null</td></tr>
+            <tr><td><code>actor</code></td><td>string</td><td>Name/handle of person who made the call</td></tr>
+            <tr><td><code>confidence</code></td><td>float 0–1</td><td>AI confidence in its classification</td></tr>
+            <tr><td><code>evidence_excerpt</code></td><td>string</td><td>Short excerpt (&lt;100 chars) as evidence</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-6: Output sheet writing</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tab</th><th>Write mode</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Features</strong></td><td><span class="tag tag-amber">Upsert</span></td><td>One row per feature, keyed by Feature ID. Overwritten on every run.</td></tr>
+            <tr><td><strong>Scope Registry</strong></td><td><span class="tag tag-amber">Upsert</span></td><td>One row per feature-task combo. Composite key.</td></tr>
+            <tr><td><strong>Changelog</strong></td><td><span class="tag tag-green">Append only</span></td><td>Every scope event from every source. Never deleted.</td></tr>
+            <tr><td><strong>Run Log</strong></td><td><span class="tag tag-green">Append only</span></td><td>One row per run. Audit trail of all executions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-7: Manual trigger</div>
+      <p>A dedicated HTTP endpoint that triggers a full pipeline run immediately. Returns a JSON summary. Callable from browser, curl, or any HTTP client.</p>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">FR-8: Feature on/off toggle</div>
+      <p><code>Active</code> column in Config Sheet Tab 1. If <code>Active = N</code>, zero API calls are made for that feature. Toggle takes effect on the next run.</p>
+    </div>
+  </div>
+
+  <!-- S3 -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div class="section-title">Non-functional requirements</div>
+    </div>
+    <div class="card-grid">
+      <div class="card"><div class="card-label">Resilience</div><div class="card-body">Each pipeline runs independently inside its own try/catch. Failure of one never blocks others.</div></div>
+      <div class="card"><div class="card-label">Idempotency</div><div class="card-body">Running the pipeline twice for the same window creates zero duplicate changelog entries. Source message IDs used as dedup keys.</div></div>
+      <div class="card"><div class="card-label">Cost efficiency</div><div class="card-body">Batch processing only. Slack messages pre-filtered by keyword before AI classification.</div></div>
+      <div class="card"><div class="card-label">Auditability</div><div class="card-body">Every run logged with full detail. Every AI decision logged with confidence score.</div></div>
+      <div class="card"><div class="card-label">Maintainability</div><div class="card-body">All configuration in Google Sheet. No hardcoded feature names, channel IDs, or URLs in code.</div></div>
+    </div>
+  </div>
+
+  <!-- S4 -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div class="section-title">High level design</div>
+    </div>
+    <div class="arch">
+      <div class="arch-label">Trigger layer</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:1rem;">
+        <div class="arch-layer" style="background:var(--gray-50); border:0.5px solid var(--gray-100); font-size:13px; color:var(--gray-800);">cron-job.org<br><span style="font-size:11px; color:var(--gray-400);">scheduled</span></div>
+        <div class="arch-layer" style="background:var(--gray-50); border:0.5px solid var(--gray-100); font-size:13px; color:var(--gray-800);">POST /run<br><span style="font-size:11px; color:var(--gray-400);">manual</span></div>
+      </div>
+      <div style="text-align:center; color:var(--gray-400); font-size:18px; margin-bottom:8px;">↓</div>
+      <div class="arch-layer" style="background:var(--purple-50); border:0.5px solid var(--purple-100); text-align:center; margin-bottom:1rem; color:var(--purple-800);">
+        <div style="font-weight:500; font-size:14px; color:var(--purple-800);">Orchestrator</div>
+        <div style="font-size:12px; color:var(--purple-600); margin-top:4px;">Read config → filter active features → dispatch pipelines → collect results → write sheet → log run</div>
+      </div>
+      <div style="text-align:center; color:var(--gray-400); font-size:18px; margin-bottom:8px;">↓ Promise.allSettled (parallel, independent)</div>
+      <div class="pipeline-row">
+        <div class="pipeline-box pb-teal">
+          <div class="pb-title">PRD pipeline</div>
+          <div class="pb-sub">Confluence API → HTML strip → Claude extraction → snapshot diff</div>
+        </div>
+        <div class="pipeline-box pb-blue">
+          <div class="pb-title">UAT pipeline</div>
+          <div class="pb-sub">Google Sheets API → column detection → deterministic rules engine</div>
+        </div>
+        <div class="pipeline-box pb-purple">
+          <div class="pb-title">Slack pipeline</div>
+          <div class="pb-sub">Slack API → thread batching → keyword filter → Claude classification</div>
+        </div>
+      </div>
+      <div style="text-align:center; color:var(--gray-400); font-size:18px; margin: 8px 0;">↓</div>
+      <div class="arch-label">Output layer</div>
+      <div class="output-row">
+        <div class="pipeline-box pb-amber"><div class="pb-title">Features tab</div><div class="pb-sub">Upsert by Feature ID</div></div>
+        <div class="pipeline-box pb-amber"><div class="pb-title">Scope Registry</div><div class="pb-sub">Upsert by composite key</div></div>
+        <div class="pipeline-box pb-coral"><div class="pb-title">Changelog</div><div class="pb-sub">Append-only with dedup</div></div>
+        <div class="pipeline-box pb-coral"><div class="pb-title">Run Log</div><div class="pb-sub">Always append</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S5 -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div class="section-title">Low level design</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.1 Project structure</div>
+      <pre>scope-tracker/
+├── index.js                  # Entry point — HTTP server + manual trigger
+├── orchestrator.js           # Main run loop
+├── config/
+│   └── configReader.js       # Reads Config Google Sheet
+├── pipelines/
+│   ├── prdPipeline.js
+│   ├── uatPipeline.js
+│   └── slackPipeline.js
+├── ai/
+│   ├── classifier.js         # Claude API — Slack classification
+│   └── prdExtractor.js       # Claude API — PRD feature extraction
+├── writer/
+│   └── sheetWriter.js        # All Google Sheet write operations
+├── utils/
+│   ├── logger.js
+│   ├── deduplicator.js
+│   └── diffEngine.js         # PRD snapshot diff logic
+├── state/
+│   └── runState.json         # Last run timestamps + snapshots
+├── .env                      # API keys (never committed)
+└── README.md</pre>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.2 Orchestrator logic</div>
+      <pre>async function runPipeline(triggerType = 'scheduled') {
+  const runId = generateRunId()
+  const runStart = new Date()
+  const manifest = await configReader.load()
+  const activeFeatures = manifest.filter(f => f.active)
+
+  // All 3 pipelines run in parallel — Promise.allSettled ensures
+  // one failure never stops the others
+  const results = await Promise.allSettled([
+    prdPipeline.run(activeFeatures),
+    uatPipeline.run(activeFeatures),
+    slackPipeline.run(activeFeatures)
+  ])
+
+  const aggregated = aggregateResults(results)
+  await sheetWriter.writeAll(aggregated)
+  await sheetWriter.writeRunLog(runId, runStart, aggregated, triggerType)
+}</pre>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.3 PRD pipeline logic</div>
+      <pre>1. For each active feature with a PRD page ID:
+   a. Confluence API → get page (storage format) → strip HTML → clean text
+   b. Claude API (prdExtractor) → structured feature list as JSON
+   c. Load previous snapshot from runState.json
+   d. If no snapshot → baseline run, store it, no changelog entries
+   e. If snapshot exists → diff new vs old
+      - Added features   → changelog: type=scope_change, source=prd
+      - Removed features → changelog: type=parking (presumed), source=prd
+      - Modified         → changelog: type=scope_change, source=prd
+   f. Store new snapshot with timestamp</pre>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.4 UAT pipeline logic</div>
+      <pre>1. For each active feature with a UAT sheet URL:
+   a. Google Sheets API → all rows + headers
+   b. Find all columns matching "UAT * Status" → pick highest number
+   c. For each row: read Issue, latest UAT Status, Blocker column
+      → apply rules (see Section 9)
+      → if disposition != NO_ACTION → create changelog entry
+   d. Return changelog entries + feature status updates</pre>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.5 Slack pipeline logic</div>
+      <pre>1. For each active feature:
+   a. Load last_slack_run from runState.json
+   b. For each channel:
+      - conversations.history since last_slack_run
+      - For messages with replies → conversations.replies (full thread)
+   c. Pre-filter: discard threads with zero matching keywords
+   d. Send qualifying threads to Claude API (classifier) in batch
+   e. Parse JSON response, create changelog entries
+   f. Update last_slack_run in runState.json</pre>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">5.6 Sheet writer logic</div>
+      <pre>Features tab (upsert):
+  → Load all rows, index by Feature ID
+  → If exists: update row in place. If new: append.
+
+Scope Registry (upsert):
+  → Index by (Feature ID + Task Name) composite key
+  → Same upsert logic
+
+Changelog (append with dedup):
+  → Check source_message_id before writing
+  → If already present → skip. Never update or delete.
+
+Run Log (always append):
+  → Never update. One row per run, always new.</pre>
+    </div>
+  </div>
+
+  <!-- S6 -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <div class="section-title">Data models</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Config Sheet — Tab 1: Features</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>Feature ID</code></td><td>String</td><td>Unique ID e.g. <span class="td-code">FEAT-001</span></td></tr>
+          <tr><td><code>Feature Name</code></td><td>String</td><td>Human name e.g. <span class="td-code">Scalper</span></td></tr>
+          <tr><td><code>Active</code></td><td>Y/N</td><td>Toggle — N skips all processing entirely</td></tr>
+          <tr><td><code>PRD Page ID</code></td><td>String</td><td>Confluence page ID</td></tr>
+          <tr><td><code>UAT Sheet URL</code></td><td>String</td><td>Full Google Sheet URL</td></tr>
+          <tr><td><code>Output Sheet ID</code></td><td>String</td><td>Google Sheet ID for output</td></tr>
+          <tr><td><code>Target Version</code></td><td>String</td><td>Current target e.g. <span class="td-code">V1</span></td></tr>
+          <tr><td><code>Current Status</code></td><td>String</td><td>In Scope / Parked / Fast Follower</td></tr>
+          <tr><td><code>Start Date</code></td><td>Date</td><td>Project start date</td></tr>
+          <tr><td><code>Notes</code></td><td>String</td><td>Free text</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Config Sheet — Tab 2: Slack channels</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>Feature ID</code></td><td>String</td><td>FK to Tab 1</td></tr>
+          <tr><td><code>Channel Name</code></td><td>String</td><td>e.g. <span class="td-code">#scalper-dev</span></td></tr>
+          <tr><td><code>Channel ID</code></td><td>String</td><td>Slack channel ID e.g. <span class="td-code">C01234ABC</span></td></tr>
+          <tr><td><code>Keywords</code></td><td>String</td><td>Comma-separated filter keywords</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Output Sheet — Tab 3: Changelog</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Column</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>Timestamp</code></td><td>When logged</td></tr>
+          <tr><td><code>Feature ID</code></td><td></td></tr>
+          <tr><td><code>Source</code></td><td><span class="tag tag-purple">prd</span> <span class="tag tag-blue">slack</span> <span class="tag tag-teal">uat</span></td></tr>
+          <tr><td><code>Decision Type</code></td><td>parking / scope_change / fast_follower / blocker / discussion</td></tr>
+          <tr><td><code>Reason</code></td><td>Extracted reason text</td></tr>
+          <tr><td><code>Actor</code></td><td>Who made the call</td></tr>
+          <tr><td><code>Target Version</code></td><td>V1/V2/V3 if applicable</td></tr>
+          <tr><td><code>Confidence Score</code></td><td>1.0 for UAT/PRD; 0.0–1.0 for Slack AI</td></tr>
+          <tr><td><code>Evidence</code></td><td>Slack link or PRD diff excerpt</td></tr>
+          <tr><td><code>Source Message ID</code></td><td>Deduplication key — never duplicated</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Output Sheet — Tab 4: Run Log</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Column</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>Run ID</code></td><td>UUID</td></tr>
+          <tr><td><code>Triggered By</code></td><td><span class="tag tag-blue">scheduled</span> or <span class="tag tag-amber">manual</span></td></tr>
+          <tr><td><code>Run Start / End</code></td><td>Timestamps</td></tr>
+          <tr><td><code>PRD Status</code></td><td><span class="tag tag-green">success</span> / <span class="tag tag-coral">failed</span> / skipped</td></tr>
+          <tr><td><code>UAT Status</code></td><td>Same enum</td></tr>
+          <tr><td><code>Slack Status</code></td><td>Same enum</td></tr>
+          <tr><td><code>Changelog Entries Added</code></td><td>Count</td></tr>
+          <tr><td><code>Errors</code></td><td>JSON string of errors encountered</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- S7 -->
+  <div class="section" id="s7">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <div class="section-title">Sequence diagrams</div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">7.1 Scheduled run (full pipeline)</div>
+      <div class="seq-diagram">
+cron-job.org → Orchestrator: HTTP POST /run
+Orchestrator → ConfigSheet: read()
+ConfigSheet → Orchestrator: feature manifest
+
+--- Promise.allSettled (all 3 run in parallel) ---
+
+[PRD Pipeline]
+Orchestrator → Confluence: getPage(pageId)
+Confluence → Orchestrator: HTML content
+Orchestrator → ClaudeAPI: extract features from text
+ClaudeAPI → Orchestrator: structured feature JSON
+Orchestrator → runState.json: load previous snapshot
+Orchestrator → diffEngine: diff new vs old
+diffEngine → Orchestrator: added / removed / modified entries
+
+[UAT Pipeline]
+Orchestrator → GoogleSheets: getRows(sheetUrl)
+GoogleSheets → Orchestrator: rows + headers
+Orchestrator → rulesEngine: apply dispositions
+rulesEngine → Orchestrator: changelog entries
+
+[Slack Pipeline]
+Orchestrator → SlackAPI: history since last_run per channel
+SlackAPI → Orchestrator: messages
+Orchestrator → SlackAPI: replies for threaded messages
+Orchestrator → ClaudeAPI: classify threads (batch)
+ClaudeAPI → Orchestrator: JSON classifications
+
+--- Pipelines complete ---
+
+Orchestrator → SheetWriter: writeAll(aggregated)
+SheetWriter → OutputSheet: upsert Features + Scope Registry
+SheetWriter → OutputSheet: append Changelog
+SheetWriter → OutputSheet: append Run Log
+Orchestrator → cron-job.org: 200 OK + JSON summary
+      </div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">7.2 Manual trigger</div>
+      <div class="seq-diagram">
+User/Browser → HTTP Server: GET /run
+HTTP Server → Orchestrator: runPipeline('manual')
+Orchestrator → [runs full pipeline as above]
+Orchestrator → HTTP Server: result object
+HTTP Server → User/Browser: JSON { runId, status, entriesAdded, errors, duration }
+      </div>
+    </div>
+  </div>
+
+  <!-- S8 -->
+  <div class="section" id="s8">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <div class="section-title">Google Sheet templates</div>
+    </div>
+    <div class="info-box info-box-blue">
+      <div class="info-box-label">Note</div>
+      Tab 3 (Run State) is managed entirely by the system. You only fill in Tab 1 and Tab 2.
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Tab 1: Features (you fill this in)</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Feature ID</th><th>Feature Name</th><th>Active</th><th>PRD Page ID</th><th>Target Version</th><th>Start Date</th></tr></thead>
+        <tbody>
+          <tr><td><span class="td-code">FEAT-001</span></td><td>Scalper</td><td><span class="tag tag-green">Y</span></td><td><span class="td-code">&lt;page_id&gt;</span></td><td>V1</td><td>2026-03-01</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Tab 2: Slack channels (you fill this in)</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Feature ID</th><th>Channel Name</th><th>Channel ID</th><th>Keywords</th></tr></thead>
+        <tbody>
+          <tr><td><span class="td-code">FEAT-001</span></td><td>#scalper-dev</td><td><span class="td-code">C0XXXXXXXX</span></td><td>scalper, scalper flow, scalper feature</td></tr>
+          <tr><td><span class="td-code">FEAT-001</span></td><td>#design-general</td><td><span class="td-code">C0YYYYYYYY</span></td><td>scalper</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- S9 -->
+  <div class="section" id="s9">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <div class="section-title">UAT sheet rules logic</div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Column detection rule</div>
+      <pre>1. Find all headers matching pattern: "UAT * Status" (case-insensitive)
+2. Extract numeric suffix: "UAT 1 Status" → 1, "UAT 3 Status" → 3
+3. Use column with highest number as active UAT Status column
+4. If no numeric suffix, use last matching column by position</pre>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Status → disposition mapping</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Latest UAT status</th><th>Blocker for release?</th><th>Disposition</th><th>Target version</th></tr></thead>
+        <tbody>
+          <tr><td>Failed</td><td>No</td><td><span class="tag tag-amber">Pushed to next release</span></td><td>Current version + 1 (e.g. V1 → V2)</td></tr>
+          <tr><td>Failed</td><td>Yes</td><td><span class="tag tag-coral">Active blocker</span></td><td>Current version (flag, do not park)</td></tr>
+          <tr><td>Parked for later</td><td>Any</td><td><span class="tag tag-purple">Parked</span></td><td>Unversioned / TBD</td></tr>
+          <tr><td>Passed</td><td>Any</td><td><span class="tag tag-green">No action</span></td><td>—</td></tr>
+          <tr><td>Passed with iteration</td><td>Any</td><td><span class="tag tag-green">No action</span></td><td>Current version (note iteration needed)</td></tr>
+          <tr><td>To be tested</td><td>Any</td><td><span class="tag tag-green">No action</span></td><td>—</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- S10 -->
+  <div class="section" id="s10">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <div class="section-title">Version naming convention</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Label</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag tag-green">V1 / MVP</span></td><td>First production release. Core functionality only.</td></tr>
+        <tr><td><span class="tag tag-blue">V2</span></td><td>Second release. Fast followers from V1. Enhancements.</td></tr>
+        <tr><td><span class="tag tag-blue">V3</span></td><td>Third release. Further iterations.</td></tr>
+        <tr><td><span class="tag tag-blue">Vn</span></td><td>Pattern continues numerically.</td></tr>
+        <tr><td><span class="tag tag-amber">Parked</span></td><td>No version assigned. Decision deferred indefinitely.</td></tr>
+        <tr><td><span class="tag tag-coral">Dropped</span></td><td>Explicitly removed from roadmap.</td></tr>
+        <tr><td><span class="tag tag-purple">Fast Follower Vn</span></td><td>Specifically scoped as a follow-up to version n.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- S11 -->
+  <div class="section" id="s11">
+    <div class="section-header">
+      <div class="section-num">11</div>
+      <div class="section-title">Error handling & resilience</div>
+    </div>
+    <div class="card-grid">
+      <div class="card"><div class="card-label">Pipeline isolation</div><div class="card-body">Each pipeline is in its own try/catch. Errors are caught, structured, and added to the run log. Orchestrator continues with remaining pipelines.</div></div>
+      <div class="card"><div class="card-label">Partial Slack failure</div><div class="card-body">If one channel fetch fails (e.g. bot not in channel), that channel is logged as failed. Remaining channels still run.</div></div>
+      <div class="card"><div class="card-label">Retry logic</div><div class="card-body">3 attempts per external API call. Exponential backoff: 1s → 2s → 4s. If all retries fail, error is logged and pipeline continues.</div></div>
+      <div class="card"><div class="card-label">Deduplication</div><div class="card-body">Before writing any changelog entry, system checks Source Message ID. If already present → skip. Re-runs never create duplicates.</div></div>
+    </div>
+    <div class="subsection" style="margin-top:1rem;">
+      <div class="subsection-title">Run log error format</div>
+      <pre>[
+  { "pipeline": "slack", "channel": "#scalper-dev", "error": "channel_not_found" },
+  { "pipeline": "prd", "feature": "FEAT-001", "error": "confluence_api_timeout" }
+]</pre>
+    </div>
+  </div>
+
+  <!-- S12 -->
+  <div class="section" id="s12">
+    <div class="section-header">
+      <div class="section-num">12</div>
+      <div class="section-title">Manual trigger</div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Endpoints</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Endpoint</th><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /health</code></td><td>GET</td><td>Returns system status + last run time. Used by cron-job.org to verify server is alive.</td></tr>
+          <tr><td><code>POST /run</code></td><td>POST</td><td>Triggers a full pipeline run immediately. Returns JSON run summary.</td></tr>
+          <tr><td><code>GET /run/:runId</code></td><td>GET</td><td>Returns details of a specific run from the Run Log.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">How to trigger manually</div>
+      <pre># From terminal
+curl -X POST https://your-server-url/run
+
+# Response
+{
+  "runId": "run_20260316_1430",
+  "triggeredBy": "manual",
+  "duration": 42,
+  "featuresProcessed": 1,
+  "changelogEntriesAdded": 3,
+  "prdStatus": "success",
+  "uatStatus": "success",
+  "slackStatus": "skipped",
+  "errors": []
+}</pre>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Required environment variables</div>
+      <pre>ANTHROPIC_API_KEY=
+CONFLUENCE_API_TOKEN=
+CONFLUENCE_EMAIL=
+CONFLUENCE_BASE_URL=https://mintcapbrokers.atlassian.net
+SLACK_BOT_TOKEN=
+GOOGLE_SERVICE_ACCOUNT_JSON=
+CONFIG_SHEET_ID=
+PORT=3000</pre>
+    </div>
+  </div>
+
+  <!-- S13 -->
+  <div class="section" id="s13">
+    <div class="section-header">
+      <div class="section-num">13</div>
+      <div class="section-title">Scheduling via cron-job.org</div>
+    </div>
+    <div class="subsection">
+      <div class="subsection-title">Setup steps</div>
+      <ol style="font-size:14px; color:#2c2c2a; padding-left:1.25rem; line-height:2;">
+        <li>Deploy Node.js server to Railway, Render, or Fly.io (all have free tiers)</li>
+        <li>Note the public URL (e.g. <code>https://scope-tracker.railway.app</code>)</li>
+        <li>Go to cron-job.org → Create new cronjob</li>
+        <li>URL: <code>https://scope-tracker.railway.app/run</code> — Method: POST</li>
+        <li>Schedule: <code>0 18 * * 1-5</code> (6pm every weekday)</li>
+        <li>Enable "Save responses" to audit what each run returned</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- S14 -->
+  <div class="section" id="s14">
+    <div class="section-header">
+      <div class="section-num">14</div>
+      <div class="section-title">Claude Code task groups</div>
+    </div>
+    <div class="info-box info-box-purple">
+      <div class="info-box-label">Instructions to Claude Code</div>
+      Create <code>task-tracker.json</code> at project root on first run. Read it at the start of every session to find the next pending group. Complete all tasks in one group, update statuses, print <strong>✅ Group [N] — [Name] completed</strong>, then stop. On next session, resume from next incomplete group.
+    </div>
+
+    <div id="task-groups"></div>
+  </div>
+
+</div>
+
+<script>
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const groups = [
+  { id: 1, name: "Project scaffold & environment", section: "Section 5.1", tasks: [
+    "Initialise Node.js project with package.json",
+    "Create folder structure as per LLD Section 5.1",
+    "Install dependencies: express, googleapis, axios, dotenv",
+    "Create .env.example with all required env variable names",
+    "Create README.md with setup and run instructions"
+  ]},
+  { id: 2, name: "Config sheet reader", section: "Sections 5.2, 6", tasks: [
+    "Implement configReader.js — authenticate with Google Sheets API using service account",
+    "Read Tab 1 (Features) and return structured feature manifest",
+    "Read Tab 2 (Slack Channels) and attach to each feature",
+    "Read Tab 3 (Run State) and attach last-run timestamps",
+    "Filter out features where Active = N",
+    "Write unit test: mock sheet data → verify manifest structure"
+  ]},
+  { id: 3, name: "Output sheet writer", section: "Sections 5.6, 6", tasks: [
+    "Implement sheetWriter.js — authenticate and connect to Output Sheet",
+    "Implement upsertFeatures() — upsert rows by Feature ID",
+    "Implement upsertScopeRegistry() — upsert by (Feature ID + Task Name) composite key",
+    "Implement appendChangelog() — append with dedup by Source Message ID",
+    "Implement appendRunLog() — always append, never update",
+    "Implement writeAll() — accepts aggregated result and calls all above"
+  ]},
+  { id: 4, name: "PRD pipeline (Confluence)", section: "Sections 5.3, FR-2", tasks: [
+    "Implement Confluence API client — authenticate using API token + email",
+    "Implement getPage() — fetch by ID, strip HTML to clean text",
+    "Implement prdExtractor.js — Claude API call for structured feature list",
+    "Implement snapshot storage in runState.json with timestamp",
+    "Implement diffEngine.js — compare new vs previous snapshot",
+    "Implement prdPipeline.js — orchestrate above, return changelog entries"
+  ]},
+  { id: 5, name: "UAT pipeline (Google Sheets)", section: "Sections 5.4, 9", tasks: [
+    "Implement UAT sheet reader — fetch rows + headers from configured URL",
+    "Implement latest-column detector — find highest-numbered UAT Status column",
+    "Implement rules engine — apply disposition mapping from Section 9",
+    "Implement version inference — derive next version from current target",
+    "Implement uatPipeline.js — orchestrate above, return changelog entries"
+  ]},
+  { id: 6, name: "Slack pipeline", section: "Sections 5.5, FR-4", tasks: [
+    "Implement Slack API client — authenticate with bot token",
+    "Implement channel history fetcher — get messages since last_slack_run",
+    "Implement thread fetcher — fetch full thread for messages with replies",
+    "Implement keyword pre-filter — discard threads with zero matching keywords",
+    "Implement classifier.js — Claude API call per thread, return structured JSON",
+    "Implement slackPipeline.js — per-channel error isolation, return changelog entries"
+  ]},
+  { id: 7, name: "Orchestrator & HTTP server", section: "Sections 5.2, 12", tasks: [
+    "Implement orchestrator.js — Promise.allSettled across all 3 pipelines",
+    "Implement result aggregator — collect results + errors from all pipelines",
+    "Update Run State in config sheet Tab 3 after successful run",
+    "Implement index.js — Express server with /health and /run endpoints",
+    "Add retry utility (3 attempts, exponential backoff) wrapping all external calls",
+    "Add structured terminal logging for each pipeline step"
+  ]},
+  { id: 8, name: "Integration testing & deployment", section: "Sections 11, 13", tasks: [
+    "End-to-end test with mock data for all 3 pipelines",
+    "Verify dedup: run pipeline twice, confirm no duplicate changelog entries",
+    "Verify resilience: simulate PRD failure, confirm UAT and Slack still complete",
+    "Create Procfile for Railway/Render deployment",
+    "Document all env variables and deployment steps in README.md",
+    "Test /health and /run endpoints via curl"
+  ]}
+];
+
+const container = document.getElementById('task-groups');
+groups.forEach(g => {
+  const div = document.createElement('div');
+  div.className = 'task-group';
+  const tasksHtml = g.tasks.map((t, i) => `
+    <div class="task-item">
+      <span class="task-id">${g.id}.${i+1}</span>
+      <span class="task-name">${t}</span>
+      <span class="status-dot"></span>
+    </div>`).join('');
+  div.innerHTML = `
+    <div class="tg-header" onclick="toggleGroup(this)">
+      <div class="tg-num">${g.id}</div>
+      <div class="tg-name">${g.name}</div>
+      <div class="tg-section">${g.section}</div>
+      <div class="tg-toggle">▸</div>
+    </div>
+    <div class="tg-tasks">${tasksHtml}</div>`;
+  container.appendChild(div);
+});
+
+function toggleGroup(header) {
+  const tasks = header.nextElementSibling;
+  const toggle = header.querySelector('.tg-toggle');
+  const isOpen = tasks.classList.contains('open');
+  tasks.classList.toggle('open', !isOpen);
+  toggle.textContent = isOpen ? '▸' : '▾';
+}
+</script>
+</body>
+</html>

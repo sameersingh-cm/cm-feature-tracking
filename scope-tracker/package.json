@@ -1,0 +1,19 @@
+{
+  "name": "scope-tracker",
+  "version": "1.0.0",
+  "description": "Automated scope tracking system across Confluence, Slack, and Google Sheets",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "googleapis": "^171.4.0"
+  }
+}

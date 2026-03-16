@@ -1,0 +1,120 @@
+{
+  "last_updated": "2026-03-16T00:00:00.000Z",
+  "sections": {
+    "5.2": {
+      "summary": "Orchestrator logic: async runPipeline(triggerType='scheduled'). Generates runId, loads config, runs prdPipeline/uatPipeline/slackPipeline in parallel via Promise.allSettled, aggregates results, calls sheetWriter.writeAll(aggregated), then writeRunLog. Each pipeline returns { changelog, errors }.",
+      "key_decisions": [
+        "Promise.allSettled ensures one pipeline failure never stops others",
+        "aggregateResults groups changelog entries by outputSheetId from feature manifest",
+        "Run Log entry written to each output sheet that had activity",
+        "Run State (Tab 3 of config sheet) updated with last run timestamps after run"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "12": {
+      "summary": "HTTP endpoints: GET /health (returns status + last run time), POST /run (triggers runPipeline('manual'), returns JSON summary), GET /run/:runId (returns specific run details). Response shape: { runId, triggeredBy, duration, featuresProcessed, changelogEntriesAdded, prdStatus, uatStatus, slackStatus, errors }.",
+      "key_decisions": [
+        "Retry logic: 3 attempts, exponential backoff 1s → 2s → 4s. All retries fail → log error and pipeline continues",
+        "PORT env var, default 3000",
+        "GET /health used by cron-job.org to verify server is alive",
+        "POST /run is the manual trigger endpoint"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "5.6": {
+      "summary": "Sheet writer logic for Output Sheet. Four operations: (1) Features tab — upsert by Feature ID; (2) Scope Registry — upsert by composite key (Feature ID + Task Name); (3) Changelog — append only, dedup by Source Message ID, never update/delete; (4) Run Log — always append, never update.",
+      "key_decisions": [
+        "Upsert = load all rows, index by key, update in-place if found, append if new",
+        "Changelog dedup checks Source Message ID before writing; skips if already present",
+        "Run Log is append-only, one row per run"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "6": {
+      "summary": "Data models for all four Output Sheet tabs. Changelog columns: Timestamp, Feature ID, Source, Decision Type, Reason, Actor, Target Version, Confidence Score, Evidence, Source Message ID. Run Log columns: Run ID, Triggered By, Run Start, Run End, PRD Status, UAT Status, Slack Status, Changelog Entries Added, Errors. Config Sheet Tab1: Feature ID, Feature Name, Active, PRD Page ID, UAT Sheet URL, Output Sheet ID, Target Version, Current Status, Start Date, Notes. Config Sheet Tab2: Feature ID, Channel Name, Channel ID, Keywords.",
+      "key_decisions": [
+        "Source Message ID is the dedup key for Changelog",
+        "Confidence Score is 1.0 for UAT/PRD; 0.0-1.0 for Slack AI",
+        "Run Log Errors column is JSON string"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "5.3": {
+      "summary": "PRD pipeline logic: For each active feature with a PRD page ID: (a) Confluence API → get page (storage format) → strip HTML → clean text; (b) Claude API (prdExtractor) → structured feature list as JSON; (c) Load previous snapshot from runState.json; (d) If no snapshot → baseline run, store it, no changelog entries; (e) If snapshot exists → diff new vs old — Added=scope_change, Removed=parking, Modified=scope_change; (f) Store new snapshot with timestamp.",
+      "key_decisions": [
+        "Confluence auth: Basic auth with email:API_token base64 encoded",
+        "Endpoint: GET /wiki/rest/api/content/{pageId}?expand=body.storage",
+        "Snapshots stored in state/runState.json keyed by feature ID",
+        "No snapshot on first run = baseline, no changelog entries produced",
+        "Source Message ID for PRD entries = prd::{featureId}::{hash of feature entry}"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "FR-2": {
+      "summary": "FR-2: PRD ingestion (Confluence). Connects to Confluence via Atlassian API, reads PRD page per active feature. Extracts structured feature list using Claude API, snapshots with timestamp. On subsequent runs, diffs against previous snapshot and logs deltas. If Confluence fetch fails → log error to Run Log, skip PRD, continue other pipelines.",
+      "key_decisions": [
+        "Per-feature error isolation: one feature failure does not stop others",
+        "Failure mode: log to Run Log errors, mark PRD Status as 'failed'"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "5.4": {
+      "summary": "UAT pipeline logic: For each active feature with a UAT sheet URL: (a) Google Sheets API → all rows + headers; (b) Find all columns matching 'UAT * Status' → pick highest number; (c) For each row: read Issue, latest UAT Status, Blocker column → apply rules (Section 9) → if disposition != NO_ACTION → create changelog entry; (d) Return changelog entries + feature status updates.",
+      "key_decisions": [
+        "UAT sheet URL must be parsed to extract spreadsheetId and optional gid",
+        "Source Message ID for UAT = uat::{featureId}::{issueKey}::{uatStatus}",
+        "Confidence score for UAT entries is always 1.0"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "9": {
+      "summary": "UAT rules: Column detection = find all headers matching 'UAT * Status' (case-insensitive), extract numeric suffix, use column with highest number; if no numeric suffix use last by position. Status→disposition mapping: Failed+No blocker→PUSHED (target=current+1 e.g. V1→V2); Failed+Yes blocker→ACTIVE_BLOCKER (target=current, flag, do not park); Parked for later+Any→PARKED (target=TBD); Passed+Any→NO_ACTION; Passed with iteration+Any→NO_ACTION; To be tested+Any→NO_ACTION.",
+      "key_decisions": [
+        "Dispositions: PUSHED, ACTIVE_BLOCKER, PARKED, NO_ACTION",
+        "Only PUSHED, ACTIVE_BLOCKER, PARKED produce changelog entries",
+        "Version inference: parse numeric suffix from 'V1', 'V2' etc and increment by 1"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "5.5": {
+      "summary": "Slack pipeline logic: For each active feature: (a) Load last_slack_run from runState.json; (b) For each channel: conversations.history since last_slack_run, for messages with replies → conversations.replies (full thread); (c) Pre-filter: discard threads with zero matching keywords; (d) Send qualifying threads to Claude API (classifier) in batch; (e) Parse JSON response, create changelog entries; (f) Update last_slack_run in runState.json.",
+      "key_decisions": [
+        "Source Message ID for Slack = slack::{featureId}::{channelId}::{message.ts}",
+        "Confidence score is 0.0–1.0 from Claude classifier",
+        "Per-channel error isolation: one channel failing doesn't stop others",
+        "last_slack_run stored per feature in state/runState.json"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "FR-4": {
+      "summary": "FR-4: Slack ingestion. Reads full threads (not individual messages) from configured channels. Pre-filters by keyword before sending to AI. All detections logged regardless of confidence score (confidence column visible for audit). Per-channel failure isolation.",
+      "key_decisions": [
+        "Full threads, not individual messages",
+        "Keyword pre-filter before AI to reduce cost/noise",
+        "All is_scope_decision=true entries logged regardless of confidence",
+        "Per-channel isolation: Promise.allSettled at channel level"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "11": {
+      "summary": "Error handling & resilience. Each pipeline in its own try/catch. Errors are caught, structured, and added to the run log. Orchestrator continues with remaining pipelines. Partial Slack failure: one channel fail is logged, others continue. Retry logic: 3 attempts, exponential backoff 1s→2s→4s. Deduplication: Source Message ID checked before any changelog write; re-runs never create duplicates. Run log error format: JSON array of { pipeline, channel?, feature?, error }.",
+      "key_decisions": [
+        "Pipeline-level isolation: one failure never stops others",
+        "Per-channel Slack isolation: logged, remaining channels continue",
+        "Retry: 3 attempts, exponential backoff 1s→2s→4s",
+        "Dedup: Source Message ID as the global idempotency key"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    },
+    "13": {
+      "summary": "Scheduling via cron-job.org. Deploy Node.js server to Railway/Render/Fly.io. Note public URL. Create cronjob on cron-job.org: URL = https://your-server/run, Method = POST, Schedule = 0 18 * * 1-5 (6pm weekdays), enable Save responses for audit.",
+      "key_decisions": [
+        "cron-job.org POSTs to /run on schedule",
+        "Schedule: 0 18 * * 1-5 (6pm every weekday)",
+        "Enable Save responses on cron-job.org for audit trail",
+        "Railway/Render/Fly.io all have free tiers"
+      ],
+      "timestamp": "2026-03-16T00:00:00.000Z"
+    }
+  }
+}

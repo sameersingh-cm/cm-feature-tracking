@@ -1,0 +1,120 @@
+{
+  "groups": [
+    {
+      "id": 1,
+      "name": "Project scaffold & environment",
+      "section": "Section 5.1",
+      "status": "completed",
+      "tasks": [
+        { "id": "1.1", "name": "Initialise Node.js project with package.json", "status": "completed" },
+        { "id": "1.2", "name": "Create folder structure as per LLD Section 5.1", "status": "completed" },
+        { "id": "1.3", "name": "Install dependencies: express, googleapis, axios, dotenv", "status": "completed" },
+        { "id": "1.4", "name": "Create .env.example with all required env variable names", "status": "completed" },
+        { "id": "1.5", "name": "Create README.md with setup and run instructions", "status": "completed" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Config sheet reader",
+      "section": "Sections 5.2, 6",
+      "status": "completed",
+      "tasks": [
+        { "id": "2.1", "name": "Implement configReader.js — authenticate with Google Sheets API using service account", "status": "completed" },
+        { "id": "2.2", "name": "Read Tab 1 (Features) and return structured feature manifest", "status": "completed" },
+        { "id": "2.3", "name": "Read Tab 2 (Slack Channels) and attach to each feature", "status": "completed" },
+        { "id": "2.4", "name": "Read Tab 3 (Run State) and attach last-run timestamps", "status": "completed" },
+        { "id": "2.5", "name": "Filter out features where Active = N", "status": "completed" },
+        { "id": "2.6", "name": "Write unit test: mock sheet data → verify manifest structure", "status": "completed" }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Output sheet writer",
+      "section": "Sections 5.6, 6",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "3.1", "name": "Implement sheetWriter.js — authenticate and connect to Output Sheet", "status": "done" },
+        { "id": "3.2", "name": "Implement upsertFeatures() — upsert rows by Feature ID", "status": "done" },
+        { "id": "3.3", "name": "Implement upsertScopeRegistry() — upsert by (Feature ID + Task Name) composite key", "status": "done" },
+        { "id": "3.4", "name": "Implement appendChangelog() — append with dedup by Source Message ID", "status": "done" },
+        { "id": "3.5", "name": "Implement appendRunLog() — always append, never update", "status": "done" },
+        { "id": "3.6", "name": "Implement writeAll() — accepts aggregated result and calls all above", "status": "done" }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "PRD pipeline (Confluence)",
+      "section": "Sections 5.3, FR-2",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "4.1", "name": "Implement Confluence API client — authenticate using API token + email", "status": "done" },
+        { "id": "4.2", "name": "Implement getPage() — fetch by ID, strip HTML to clean text", "status": "done" },
+        { "id": "4.3", "name": "Implement prdExtractor.js — Claude API call for structured feature list", "status": "done" },
+        { "id": "4.4", "name": "Implement snapshot storage in runState.json with timestamp", "status": "done" },
+        { "id": "4.5", "name": "Implement diffEngine.js — compare new vs previous snapshot", "status": "done" },
+        { "id": "4.6", "name": "Implement prdPipeline.js — orchestrate above, return changelog entries", "status": "done" }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "UAT pipeline (Google Sheets)",
+      "section": "Sections 5.4, 9",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "5.1", "name": "Implement UAT sheet reader — fetch rows + headers from configured URL", "status": "done" },
+        { "id": "5.2", "name": "Implement latest-column detector — find highest-numbered UAT Status column", "status": "done" },
+        { "id": "5.3", "name": "Implement rules engine — apply disposition mapping from Section 9", "status": "done" },
+        { "id": "5.4", "name": "Implement version inference — derive next version from current target", "status": "done" },
+        { "id": "5.5", "name": "Implement uatPipeline.js — orchestrate above, return changelog entries", "status": "done" }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Slack pipeline",
+      "section": "Sections 5.5, FR-4",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "6.1", "name": "Implement Slack API client — authenticate with bot token", "status": "done" },
+        { "id": "6.2", "name": "Implement channel history fetcher — get messages since last_slack_run", "status": "done" },
+        { "id": "6.3", "name": "Implement thread fetcher — fetch full thread for messages with replies", "status": "done" },
+        { "id": "6.4", "name": "Implement keyword pre-filter — discard threads with zero matching keywords", "status": "done" },
+        { "id": "6.5", "name": "Implement classifier.js — Claude API call per thread, return structured JSON", "status": "done" },
+        { "id": "6.6", "name": "Implement slackPipeline.js — per-channel error isolation, return changelog entries", "status": "done" }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Orchestrator & HTTP server",
+      "section": "Sections 5.2, 12",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "7.1", "name": "Implement orchestrator.js — Promise.allSettled across all 3 pipelines", "status": "done" },
+        { "id": "7.2", "name": "Implement result aggregator — collect results + errors from all pipelines", "status": "done" },
+        { "id": "7.3", "name": "Update Run State in config sheet Tab 3 after successful run", "status": "done" },
+        { "id": "7.4", "name": "Implement index.js — Express server with /health and /run endpoints", "status": "done" },
+        { "id": "7.5", "name": "Add retry utility (3 attempts, exponential backoff) wrapping all external calls", "status": "done" },
+        { "id": "7.6", "name": "Add structured terminal logging for each pipeline step", "status": "done" }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Integration testing & deployment",
+      "section": "Sections 11, 13",
+      "status": "completed",
+      "last_updated": "2026-03-16T00:00:00.000Z",
+      "tasks": [
+        { "id": "8.1", "name": "End-to-end test with mock data for all 3 pipelines", "status": "done" },
+        { "id": "8.2", "name": "Verify dedup: run pipeline twice, confirm no duplicate changelog entries", "status": "done" },
+        { "id": "8.3", "name": "Verify resilience: simulate PRD failure, confirm UAT and Slack still complete", "status": "done" },
+        { "id": "8.4", "name": "Create Procfile for Railway/Render deployment", "status": "done" },
+        { "id": "8.5", "name": "Document all env variables and deployment steps in README.md", "status": "done" },
+        { "id": "8.6", "name": "Test /health and /run endpoints via curl", "status": "done" }
+      ]
+    }
+  ]
+}
