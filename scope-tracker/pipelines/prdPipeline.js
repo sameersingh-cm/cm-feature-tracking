@@ -130,10 +130,19 @@ async function runFeature(feature) {
     }
   }
 
-  // f. Store new snapshot with timestamp
+  // f. Build scope registry entries from current extracted state
+  const scopeRegistry = extracted.map((f) => ({
+    featureId,
+    taskName: f.name || '',
+    status: f.status || '',
+    source: 'prd',
+    targetVersion: f.targetVersion || '',
+  }));
+
+  // g. Store new snapshot with timestamp
   saveSnapshot(featureId, extracted);
 
-  return { featureId, changelog, errors };
+  return { featureId, changelog, scopeRegistry, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +157,7 @@ async function runFeature(feature) {
  */
 async function run(activeFeatures) {
   const allChangelog = [];
+  const allScopeRegistry = [];
   const allErrors = [];
 
   const featuresWithPrd = activeFeatures.filter((f) => f.prdPageId);
@@ -159,8 +169,9 @@ async function run(activeFeatures) {
 
   for (const result of results) {
     if (result.status === 'fulfilled') {
-      const { changelog, errors } = result.value;
+      const { changelog, scopeRegistry, errors } = result.value;
       allChangelog.push(...changelog);
+      if (scopeRegistry) allScopeRegistry.push(...scopeRegistry);
       allErrors.push(...errors);
     } else {
       // Unexpected rejection — capture it
@@ -168,7 +179,7 @@ async function run(activeFeatures) {
     }
   }
 
-  return { changelog: allChangelog, errors: allErrors };
+  return { changelog: allChangelog, scopeRegistry: allScopeRegistry, errors: allErrors };
 }
 
 module.exports = { run };

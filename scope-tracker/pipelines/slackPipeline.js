@@ -64,6 +64,7 @@ function buildChangelogEntry(featureId, channelId, parentMsg, classification) {
 async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
   const { channelId, keywords } = channel;
   const changelog = [];
+  const scopeRegistry = [];
   const errors = [];
 
   const logger = require('../utils/logger');
@@ -112,10 +113,17 @@ async function runChannel(featureId, featureName, channel, lastSlackRunUnix) {
     // Log all scope decisions regardless of confidence (PRD FR-4)
     if (classification.is_scope_decision) {
       changelog.push(buildChangelogEntry(featureId, channelId, msg, classification));
+      scopeRegistry.push({
+        featureId,
+        taskName: classification.reason || classification.decision_type || '',
+        status: classification.decision_type || '',
+        source: 'slack',
+        targetVersion: classification.target_version || '',
+      });
     }
   }
 
-  return { changelog, errors };
+  return { changelog, scopeRegistry, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -149,9 +157,12 @@ async function runFeature(feature) {
     slackChannels.map((ch) => runChannel(featureId, featureName, ch, lastSlackRunUnix))
   );
 
+  const scopeRegistry = [];
+
   for (const result of channelResults) {
     if (result.status === 'fulfilled') {
       changelog.push(...result.value.changelog);
+      if (result.value.scopeRegistry) scopeRegistry.push(...result.value.scopeRegistry);
       errors.push(...result.value.errors);
     } else {
       errors.push({
@@ -166,7 +177,7 @@ async function runFeature(feature) {
   // Update last_slack_run after processing all channels
   saveLastSlackRun(featureId, runTimestamp);
 
-  return { featureId, changelog, errors };
+  return { featureId, changelog, scopeRegistry, errors };
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +192,7 @@ async function runFeature(feature) {
  */
 async function run(activeFeatures) {
   const allChangelog = [];
+  const allScopeRegistry = [];
   const allErrors = [];
 
   const featuresWithSlack = activeFeatures.filter(
@@ -194,6 +206,7 @@ async function run(activeFeatures) {
   for (const result of results) {
     if (result.status === 'fulfilled') {
       allChangelog.push(...result.value.changelog);
+      if (result.value.scopeRegistry) allScopeRegistry.push(...result.value.scopeRegistry);
       allErrors.push(...result.value.errors);
     } else {
       allErrors.push({
@@ -204,7 +217,7 @@ async function run(activeFeatures) {
     }
   }
 
-  return { changelog: allChangelog, errors: allErrors };
+  return { changelog: allChangelog, scopeRegistry: allScopeRegistry, errors: allErrors };
 }
 
 module.exports = { run };

@@ -30,6 +30,7 @@ function getSettledResult(settled, pipelineName) {
   });
   return {
     changelog: [],
+    scopeRegistry: [],
     errors: [{ pipeline: pipelineName, error: settled.reason?.message || String(settled.reason) }],
   };
 }
@@ -52,6 +53,11 @@ function aggregateResults(prd, uat, slack, activeFeatures) {
   for (const f of activeFeatures) featureMap[f.featureId] = f;
 
   const allChangelog = [...prd.changelog, ...uat.changelog, ...slack.changelog];
+  const allScopeRegistry = [
+    ...(prd.scopeRegistry || []),
+    ...(uat.scopeRegistry || []),
+    ...(slack.scopeRegistry || []),
+  ];
   const allErrors = [...prd.errors, ...uat.errors, ...slack.errors];
 
   // Build per-sheet buckets
@@ -86,6 +92,14 @@ function aggregateResults(prd, uat, slack, activeFeatures) {
     const spreadsheetId = feature?.outputSheetId;
     if (!spreadsheetId) continue;
     getOrCreate(spreadsheetId).changelog.push(entry);
+  }
+
+  // Distribute scope registry entries to the correct output sheet
+  for (const entry of allScopeRegistry) {
+    const feature = featureMap[entry.featureId];
+    const spreadsheetId = feature?.outputSheetId;
+    if (!spreadsheetId) continue;
+    getOrCreate(spreadsheetId).scopeRegistry.push(entry);
   }
 
   const prdStatus = prd.errors.length === 0 ? 'success' : 'partial';
