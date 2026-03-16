@@ -37,11 +37,19 @@ async function fetchChannelHistory(channelId, oldest = null) {
     if (oldest) params.oldest = oldest;
     if (cursor) params.cursor = cursor;
 
-    const response = await axios.get(`${BASE_URL}/conversations.history`, {
-      headers: getHeaders(),
-      params,
-      timeout: 15000,
-    });
+    let response;
+    try {
+      response = await axios.get(`${BASE_URL}/conversations.history`, {
+        headers: getHeaders(),
+        params,
+        timeout: 15000,
+      });
+    } catch (axiosErr) {
+      const body = axiosErr.response?.data;
+      throw new Error(
+        `conversations.history HTTP ${axiosErr.response?.status}: ${JSON.stringify(body)} (channel=${channelId})`
+      );
+    }
 
     if (!response.data.ok) {
       throw new Error(`Slack API error (conversations.history): ${response.data.error}`);

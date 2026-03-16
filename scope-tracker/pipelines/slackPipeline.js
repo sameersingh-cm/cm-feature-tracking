@@ -126,6 +126,11 @@ async function runFeature(feature) {
     return { featureId, changelog, errors };
   }
 
+  const logger = require('../utils/logger');
+  logger.info('slack', `Feature ${featureId} has ${slackChannels.length} channel entries`, {
+    channels: slackChannels.map((c) => c.channelId),
+  });
+
   // Load last_slack_run and convert ISO → Unix seconds for Slack API
   const lastSlackRunIso = getLastSlackRun(featureId);
   const lastSlackRunUnix = lastSlackRunIso
