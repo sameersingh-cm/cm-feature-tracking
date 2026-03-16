@@ -8,6 +8,7 @@ const confluenceClient = require('../utils/confluenceClient');
 const { extractFeatures } = require('../ai/prdExtractor');
 const { diff } = require('../utils/diffEngine');
 const { toIST } = require('../utils/ist');
+const logger = require('../utils/logger');
 
 const RUN_STATE_PATH = path.join(__dirname, '../state/runState.json');
 
@@ -99,6 +100,7 @@ async function runFeature(feature) {
   try {
     pageText = await confluenceClient.getPage(prdPageId);
   } catch (err) {
+    logger.error('prd', `Confluence fetch failed for feature ${featureId}, pageId=${prdPageId}`, { error: err.message });
     errors.push({ pipeline: 'prd', feature: featureId, error: err.message });
     return { featureId, changelog, errors };
   }
@@ -108,6 +110,7 @@ async function runFeature(feature) {
   try {
     extracted = await extractFeatures(pageText, featureName);
   } catch (err) {
+    logger.error('prd', `Feature extraction failed for ${featureId}`, { error: err.message });
     errors.push({ pipeline: 'prd', feature: featureId, error: err.message });
     return { featureId, changelog, errors };
   }

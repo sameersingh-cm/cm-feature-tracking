@@ -53,13 +53,22 @@ async function getPage(pageId) {
 
   const url = `${baseUrl}/wiki/rest/api/content/${pageId}?expand=body.storage`;
 
-  const response = await axios.get(url, {
-    headers: {
-      Authorization: getAuthHeader(),
-      Accept: 'application/json',
-    },
-    timeout: 15000,
-  });
+  let response;
+  try {
+    response = await axios.get(url, {
+      headers: {
+        Authorization: getAuthHeader(),
+        Accept: 'application/json',
+      },
+      timeout: 15000,
+    });
+  } catch (err) {
+    const status = err.response?.status;
+    const body = err.response?.data;
+    throw new Error(
+      `Confluence API HTTP ${status} for page ${pageId}: ${JSON.stringify(body)}`
+    );
+  }
 
   const storageHtml = response.data?.body?.storage?.value || '';
   if (!storageHtml) {

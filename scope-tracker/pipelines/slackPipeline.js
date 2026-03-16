@@ -176,8 +176,16 @@ async function runFeature(feature) {
     }
   }
 
-  // Update last_slack_run after processing all channels
-  saveLastSlackRun(featureId, runTimestamp);
+  // Only update last_slack_run if we had at least some success (changelog entries
+  // or error-free channels). If everything failed, don't advance the cursor so
+  // the next run re-processes the same messages.
+  const hasSuccess = changelog.length > 0 || errors.length === 0;
+  if (hasSuccess) {
+    saveLastSlackRun(featureId, runTimestamp);
+  } else {
+    const logger = require('../utils/logger');
+    logger.warn('slack', `Skipping lastSlackRun update for ${featureId} — all channels had errors`);
+  }
 
   return { featureId, changelog, scopeRegistry, errors };
 }
